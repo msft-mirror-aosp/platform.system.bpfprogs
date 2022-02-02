@@ -30,8 +30,8 @@ bpf {
 bpf {
     name: "bpf_load_tp_prog_btf.o",
     srcs: ["bpf_load_tp_prog_btf.c"],
+    btf: true,
     cflags: [
-        "-g",
         "-Wall",
         "-Werror",
     ],
