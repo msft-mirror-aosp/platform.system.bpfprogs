@@ -14,7 +14,12 @@
  *
  */
 
+#ifdef MOCK_BPF
+#include <test/mock_bpf_helpers.h>
+#else
 #include <bpf_helpers.h>
+#endif
+
 #include <bpf_timeinstate.h>
 
 DEFINE_BPF_MAP_GRW(total_time_in_state_map, PERCPU_ARRAY, uint32_t, uint64_t, MAX_FREQS_FOR_TOTAL,
@@ -22,10 +27,12 @@ DEFINE_BPF_MAP_GRW(total_time_in_state_map, PERCPU_ARRAY, uint32_t, uint64_t, MA
 
 DEFINE_BPF_MAP_GRW(uid_time_in_state_map, PERCPU_HASH, time_key_t, tis_val_t, 1024, AID_SYSTEM)
 
-DEFINE_BPF_MAP_GRW(uid_concurrent_times_map, PERCPU_HASH, time_key_t, concurrent_val_t, 1024, AID_SYSTEM)
+DEFINE_BPF_MAP_GRW(uid_concurrent_times_map, PERCPU_HASH, time_key_t, concurrent_val_t, 1024,
+                   AID_SYSTEM)
 DEFINE_BPF_MAP_GRW(uid_last_update_map, HASH, uint32_t, uint64_t, 1024, AID_SYSTEM)
 
 DEFINE_BPF_MAP_GWO(cpu_last_update_map, PERCPU_ARRAY, uint32_t, uint64_t, 1, AID_SYSTEM)
+DEFINE_BPF_MAP_GWO(cpu_last_pid_map, PERCPU_ARRAY, uint32_t, pid_t, 1, AID_SYSTEM)
 
 DEFINE_BPF_MAP_GWO(cpu_policy_map, ARRAY, uint32_t, uint32_t, 1024, AID_SYSTEM)
 DEFINE_BPF_MAP_GWO(policy_freq_idx_map, ARRAY, uint32_t, uint8_t, 1024, AID_SYSTEM)
@@ -61,6 +68,15 @@ DEFINE_BPF_PROG("tracepoint/sched/sched_switch", AID_ROOT, AID_SYSTEM, tp_sched_
     uint64_t old_last = *last;
     uint64_t time = bpf_ktime_get_ns();
     *last = time;
+
+    // With suspend-to-ram, it's possible to see prev_pid==0 twice in a row on the same CPU. Add a
+    // check to ensure prev_pid matches the previous next_pid to avoid incorrectly incrementing our
+    // active CPU counts a second time in this scenario.
+    pid_t *cpu_pidp = bpf_cpu_last_pid_map_lookup_elem(&zero);
+    if (!cpu_pidp) return ALLOW;
+    pid_t cpu_pid = *cpu_pidp;
+    *cpu_pidp = args->next_pid;
+    if (old_last && args->prev_pid != cpu_pid) return ALLOW;
 
     uint32_t* active = bpf_nr_active_map_lookup_elem(&zero);
     if (!active) return ALLOW;
@@ -190,17 +206,18 @@ struct cpufreq_args {
 
 DEFINE_BPF_PROG("tracepoint/power/cpu_frequency", AID_ROOT, AID_SYSTEM, tp_cpufreq)
 (struct cpufreq_args* args) {
+    const int ALLOW = 1;  // return 1 to avoid blocking simpleperf from receiving events.
     uint32_t cpu = args->cpu_id;
     unsigned int new = args->state;
     uint32_t* policyp = bpf_cpu_policy_map_lookup_elem(&cpu);
-    if (!policyp) return 0;
+    if (!policyp) return ALLOW;
     uint32_t policy = *policyp;
     freq_idx_key_t key = {.policy = policy, .freq = new};
     uint8_t* idxp = bpf_freq_to_idx_map_lookup_elem(&key);
-    if (!idxp) return 0;
+    if (!idxp) return ALLOW;
     uint8_t idx = *idxp;
     bpf_policy_freq_idx_map_update_elem(&policy, &idx, BPF_ANY);
-    return 0;
+    return ALLOW;
 }
 
 // The format of the sched/sched_process_free event is described in
