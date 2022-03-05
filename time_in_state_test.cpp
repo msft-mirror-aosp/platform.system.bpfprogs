@@ -93,7 +93,7 @@ static void initCpuPolicy(uint32_t policy, std::vector<uint32_t> cpuIds,
 static void noteCpuFrequencyChange(uint32_t cpuId, uint32_t frequency) {
     cpufreq_args args{.cpu_id = cpuId, .state = frequency};
     int ret = tp_cpufreq(&args);  // Tracepoint event power/cpu_frequency
-    ASSERT_EQ(0, ret);
+    ASSERT_EQ(1, ret);
 }
 
 static void noteSchedSwitch(pid_t prevPid, pid_t nextPid) {
