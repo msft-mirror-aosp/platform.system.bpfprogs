@@ -89,7 +89,13 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
-            /* FUSE_RENAME */
+        case FUSE_RENAME | FUSE_PREFILTER: {
+            const char* name_old = fa->in_args[1].value;
+            const char* name_new = fa->in_args[2].value;
+
+            bpf_printk("RENAME: %s to %s", name_old, name_new);
+            return FUSE_BPF_BACKING;
+        }
 
         case FUSE_LINK | FUSE_PREFILTER: {
             const struct fuse_link_in* fli = fa->in_args[0].value;
