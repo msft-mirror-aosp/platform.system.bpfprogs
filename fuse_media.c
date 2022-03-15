@@ -30,10 +30,17 @@
 DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
 (struct fuse_args* fa) {
     switch (fa->opcode) {
-        case FUSE_ACCESS | FUSE_PREFILTER: {
-            bpf_printk("Access: %d", fa->nodeid);
-            return FUSE_BPF_BACKING;
+        case FUSE_LOOKUP | FUSE_PREFILTER: {
+            const char* name = fa->in_args[0].value;
+
+            bpf_printk("Lookup: %lx %s", fa->nodeid, name);
+            if (fa->nodeid == 1)
+                return FUSE_BPF_USER_FILTER | FUSE_BPF_BACKING;
+            else
+                return FUSE_BPF_BACKING;
         }
+
+            /* FUSE_FORGET */
 
         case FUSE_GETATTR | FUSE_PREFILTER: {
             const struct fuse_getattr_in* fgi = fa->in_args[0].value;
@@ -49,26 +56,8 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
-        case FUSE_OPENDIR | FUSE_PREFILTER: {
-            bpf_printk("Open Dir: %d", fa->nodeid);
-            return FUSE_BPF_BACKING;
-        }
-
-        case FUSE_READDIR | FUSE_PREFILTER: {
-            const struct fuse_read_in* fri = fa->in_args[0].value;
-            bpf_printk("Read Dir: fh: %lu", fri->fh, fri->offset);
-            return FUSE_BPF_BACKING;
-        }
-
-        case FUSE_LOOKUP | FUSE_PREFILTER: {
-            const char* name = fa->in_args[0].value;
-
-            bpf_printk("Lookup: %lx %s", fa->nodeid, name);
-            if (fa->nodeid == 1)
-                return FUSE_BPF_USER_FILTER | FUSE_BPF_BACKING;
-            else
-                return FUSE_BPF_BACKING;
-        }
+            /* FUSE_READLINK */
+            /* FUSE_SYMLINK */
 
         case FUSE_MKNOD | FUSE_PREFILTER: {
             const struct fuse_mknod_in* fmi = fa->in_args[0].value;
@@ -86,13 +75,6 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
-        case FUSE_RMDIR | FUSE_PREFILTER: {
-            const char* name = fa->in_args[0].value;
-
-            bpf_printk("rmdir: %s", name);
-            return FUSE_BPF_BACKING;
-        }
-
         case FUSE_UNLINK | FUSE_PREFILTER: {
             const char* name = fa->in_args[0].value;
 
@@ -100,30 +82,20 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
+        case FUSE_RMDIR | FUSE_PREFILTER: {
+            const char* name = fa->in_args[0].value;
+
+            bpf_printk("rmdir: %s", name);
+            return FUSE_BPF_BACKING;
+        }
+
+            /* FUSE_RENAME */
+
         case FUSE_LINK | FUSE_PREFILTER: {
             const struct fuse_link_in* fli = fa->in_args[0].value;
             const char* dst_name = fa->in_args[1].value;
 
             bpf_printk("Link: %d %s", fli->oldnodeid, dst_name);
-            return FUSE_BPF_BACKING;
-        }
-
-        case FUSE_RELEASE | FUSE_PREFILTER: {
-            const struct fuse_release_in* fri = fa->in_args[0].value;
-
-            bpf_printk("Release: %d", fri->fh);
-            return FUSE_BPF_BACKING;
-        }
-
-        case FUSE_RELEASEDIR | FUSE_PREFILTER: {
-            const struct fuse_release_in* fri = fa->in_args[0].value;
-
-            bpf_printk("Release Dir: %d", fri->fh);
-            return FUSE_BPF_BACKING;
-        }
-
-        case FUSE_CREATE | FUSE_PREFILTER: {
-            bpf_printk("Create %s", fa->in_args[1].value);
             return FUSE_BPF_BACKING;
         }
 
@@ -146,17 +118,21 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
-        case FUSE_FLUSH | FUSE_PREFILTER: {
-            const struct fuse_flush_in* ffi = fa->in_args[0].value;
+            /* FUSE_STATFS */
 
-            bpf_printk("Flush %d", ffi->fh);
+        case FUSE_RELEASE | FUSE_PREFILTER: {
+            const struct fuse_release_in* fri = fa->in_args[0].value;
+
+            bpf_printk("Release: %d", fri->fh);
             return FUSE_BPF_BACKING;
         }
 
-        case FUSE_FALLOCATE | FUSE_PREFILTER: {
-            const struct fuse_fallocate_in* ffa = fa->in_args[0].value;
+            /* FUSE_FSYNC */
 
-            bpf_printk("Fallocate %d %lu", ffa->fh, ffa->length);
+        case FUSE_SETXATTR | FUSE_PREFILTER: {
+            const char* name = fa->in_args[1].value;
+
+            bpf_printk("Setxattr %d %s", fa->nodeid, name);
             return FUSE_BPF_BACKING;
         }
 
@@ -174,12 +150,70 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
             return FUSE_BPF_BACKING;
         }
 
-        case FUSE_SETXATTR | FUSE_PREFILTER: {
-            const char* name = fa->in_args[1].value;
+            /* FUSE_REMOVEXATTR */
 
-            bpf_printk("Setxattr %d %s", fa->nodeid, name);
+        case FUSE_FLUSH | FUSE_PREFILTER: {
+            const struct fuse_flush_in* ffi = fa->in_args[0].value;
+
+            bpf_printk("Flush %d", ffi->fh);
             return FUSE_BPF_BACKING;
         }
+
+            /* FUSE_INIT */
+
+        case FUSE_OPENDIR | FUSE_PREFILTER: {
+            bpf_printk("Open Dir: %d", fa->nodeid);
+            return FUSE_BPF_BACKING;
+        }
+
+        case FUSE_READDIR | FUSE_PREFILTER: {
+            const struct fuse_read_in* fri = fa->in_args[0].value;
+            bpf_printk("Read Dir: fh: %lu", fri->fh, fri->offset);
+            return FUSE_BPF_BACKING;
+        }
+
+        case FUSE_RELEASEDIR | FUSE_PREFILTER: {
+            const struct fuse_release_in* fri = fa->in_args[0].value;
+
+            bpf_printk("Release Dir: %d", fri->fh);
+            return FUSE_BPF_BACKING;
+        }
+
+            /* FUSE_FSYNCDIR */
+            /* FUSE_GETLK */
+            /* FUSE_SETLK */
+            /* FUSE_SETLKW */
+
+        case FUSE_ACCESS | FUSE_PREFILTER: {
+            bpf_printk("Access: %d", fa->nodeid);
+            return FUSE_BPF_BACKING;
+        }
+
+        case FUSE_CREATE | FUSE_PREFILTER: {
+            bpf_printk("Create %s", fa->in_args[1].value);
+            return FUSE_BPF_BACKING;
+        }
+
+            /* FUSE_INTERRUPT */
+            /* FUSE_BMAP */
+            /* FUSE_DESTROY */
+            /* FUSE_IOCTL */
+            /* FUSE_POLL */
+            /* FUSE_NOTIFY_REPLY */
+            /* FUSE_BATCH_FORGET */
+
+        case FUSE_FALLOCATE | FUSE_PREFILTER: {
+            const struct fuse_fallocate_in* ffa = fa->in_args[0].value;
+
+            bpf_printk("Fallocate %d %lu", ffa->fh, ffa->length);
+            return FUSE_BPF_BACKING;
+        }
+
+            /* FUSE_READDIRPLUS */
+            /* FUSE_RENAME2 */
+            /* FUSE_LSEEK */
+            /* FUSE_COPY_FILE_RANGE */
+            /* CUSE_INIT */
 
         case FUSE_CANONICAL_PATH | FUSE_PREFILTER: {
             bpf_printk("CanonicalPath %d", fa->nodeid);
