@@ -1,5 +1,5 @@
 /*
- * fuse_media eBPF program
+ * fuseMedia eBPF program
  *
  * Copyright (C) 2021 Google
  *
