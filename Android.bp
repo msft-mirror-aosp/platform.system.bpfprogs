@@ -27,8 +27,8 @@ license {
 }
 
 bpf {
-    name: "time_in_state.o",
-    srcs: ["time_in_state.c"],
+    name: "timeInState.o",
+    srcs: ["timeInState.c"],
     btf: true,
     cflags: [
         "-Wall",
@@ -41,7 +41,7 @@ bpf {
 
 cc_library {
     name: "lib_mock_bpf_time_in_state",
-    srcs: ["time_in_state.c"],
+    srcs: ["timeInState.c"],
     header_libs: ["bpf_prog_headers"],
     cflags: [
         "-Wall",
