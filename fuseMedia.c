@@ -33,18 +33,20 @@ DEFINE_BPF_PROG("fuse/media", AID_ROOT, AID_MEDIA_RW, fuse_media)
         case FUSE_LOOKUP | FUSE_PREFILTER: {
             const char* name = fa->in_args[0].value;
 
-            bpf_printk("LOOKUP: %lx %s", fa->nodeid, name);
+            bpf_printk("LOOKUP_PREFILTER: %lx %s", fa->nodeid, name);
+            // Using backing implementation but remove bpf_action for children files/directories
+            // in the postfilter.
+            return FUSE_BPF_BACKING | FUSE_BPF_POST_FILTER;
+        }
+
+        case FUSE_LOOKUP | FUSE_POSTFILTER: {
+            struct fuse_entry_bpf_out* febo = fa->out_args[1].value;
+
+            febo->bpf_action = FUSE_ACTION_REMOVE;
             return FUSE_BPF_BACKING;
         }
 
         default:
-            if (fa->opcode & FUSE_PREFILTER)
-                bpf_printk("Prefilter *** UNKNOWN *** opcode: %d", fa->opcode & FUSE_OPCODE_FILTER);
-            else if (fa->opcode & FUSE_POSTFILTER)
-                bpf_printk("Postfilter *** UNKNOWN *** opcode: %d",
-                           fa->opcode & FUSE_OPCODE_FILTER);
-            else
-                bpf_printk("*** UNKNOWN *** opcode: %d", fa->opcode);
             return FUSE_BPF_BACKING;
     }
 }
