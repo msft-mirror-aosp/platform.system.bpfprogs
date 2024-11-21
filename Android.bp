@@ -36,6 +36,16 @@ bpf {
     ],
 }
 
+libbpf_prog {
+    name: "timeInState.bpf",
+    srcs: ["timeInState.c"],
+    header_libs: [
+        "bpf_prog_headers",
+        "libcutils_headers",
+        "android_bpf_defs",
+    ],
+}
+
 bpf {
     name: "fuseMedia.o",
     srcs: ["fuseMedia.c"],
