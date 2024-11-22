@@ -32,6 +32,7 @@ bpf {
     srcs: ["timeInState.c"],
     include_dirs: [
         "system/bpf/progs/include",
+        "system/bpf/include/defs",
     ],
 }
 
@@ -40,5 +41,6 @@ bpf {
     srcs: ["fuseMedia.c"],
     include_dirs: [
         "external/libfuse/include",
+        "system/bpf/include/defs",
     ],
 }

@@ -14,7 +14,7 @@
  *
  */
 
-#include <bpf_helpers.h>
+#include <android_bpf_defs.h>
 #include <bpf_timeinstate.h>
 #include <errno.h>
 
